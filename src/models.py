@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 import uuid
+from xmlrpc import client
 
 class AccountFrozenError(Exception):
     pass
@@ -221,6 +222,7 @@ class PremiumAccount(BankAccount):
             f"💸 commission: {self.commission}"
         )
     
+
 class InvestmentAccount(BankAccount):
     def __init__(self, id, owner_data, balance, account_status, currency, portfolio):
 
@@ -265,3 +267,102 @@ class InvestmentAccount(BankAccount):
             f"💰 {self._balance} {self.currency}| "
             f"📈 {self.portfolio}"
         )
+
+
+class Client:
+    def __init__(self, full_name, status, contacts, age, password):
+        self.full_name = full_name
+        self.id = str(uuid.uuid4())[:8]
+        self.status = status
+        self.account_numbers = []
+        self.contacts = contacts
+        self.password = password
+        self.age = age
+        self.is_blocked = False
+        self.failed_attempts = 0
+
+        if self.age < 18:
+                    raise InvalidOperationError("Клиент должен быть старше 18 лет")
+
+
+
+class Bank:
+    def __init__(self):
+        self.clients = []
+        self.accounts = []
+        self.suspicious_actions = []
+
+    def add_client(self, client):
+        if client not in self.clients:
+            self.clients.append(client)
+
+    def open_account(self, client, account):
+        self.accounts.append(account)
+
+        client.account_numbers.append(
+            account.id)
+
+    def close_account(self, account):
+        account.account_status = BankAccount.CLOSED
+
+    def freeze_account(self, account):
+        account.account_status = BankAccount.FROZEN
+
+    def unfreeze_account(self, account):
+        account.account_status = BankAccount.ACTIVE
+
+    def authenticate_client(self, client, password):
+
+        # клиент не зарегистрирован
+        if client not in self.clients:
+            raise InvalidOperationError(
+                "Клиент не найден"
+            )
+
+        # клиент уже заблокирован
+        if client.is_blocked:
+            self.suspicious_actions.append(
+                f"Попытка входа заблокированного клиента: {client.full_name}"
+            )
+            raise InvalidOperationError(
+                "Клиент заблокирован"
+            )
+
+        # правильный пароль
+        if client.password == password:
+            client.failed_attempts = 0
+            return True
+
+        # неправильный пароль
+        client.failed_attempts += 1
+
+        self.suspicious_actions.append(
+            f"Неверный пароль клиента: {client.full_name}"
+        )
+
+        # 3 ошибки = блокировка
+        if client.failed_attempts >= 3:
+            client.is_blocked = True
+            self.suspicious_actions.append(
+                f"Клиент заблокирован: {client.full_name}"
+            )
+            raise InvalidOperationError(
+                "Слишком много попыток. Клиент заблокирован"
+            )
+
+        return False
+
+    def check_operation_time(self):
+        from datetime import datetime
+        current_time = datetime.now().time()
+        if current_time < datetime.strptime("00:00", "%H:%M").time() or current_time > datetime.strptime("05:00", "%H:%M").time():
+            raise InvalidOperationError(
+                "Операции доступны только с 00:00 до 05:00"
+            )    
+    def search_accounts(self, owner_name):
+        return [
+            account
+            for account in self.accounts
+            if account.owner_data == owner_name
+        ]
+        
