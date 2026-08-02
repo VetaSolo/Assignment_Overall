@@ -1,123 +1,37 @@
-from models import BankAccount, AccountFrozenError, AccountClosedError, InvalidOperationError, InsufficientFundsError, PremiumAccount, InvestmentAccount, SavingsAccount, Bank, Client
+from models import BankAccount, AccountFrozenError, AccountClosedError, InvalidOperationError, InsufficientFundsError, PremiumAccount, InvestmentAccount, SavingsAccount, Bank, Client, Transaction, TransactionProcessor, TransactionProcessor, TransactionQueue, TransactionProcessor
+
 
 def main():
-
-    active_account = BankAccount(
-        None,
-        "Иван",
-        10000,
-        BankAccount.ACTIVE,
-        "RUB"
-    )
-
-    frozen_account = BankAccount(
-        None,
-        "Анна",
-        5000,
-        BankAccount.FROZEN,
-        "RUB"
-    )
-
-
-    print(active_account)
-    print(frozen_account)
-
-
-    try:
-        frozen_account.deposit(1000)
-
-    except AccountFrozenError as error:
-        print(error)
-
-
-    active_account.deposit(5000)
-    active_account.withdraw(2000)
-
-    print(active_account)
-
-    bank = BankAccount(
-        None,
-        "Банк",
-        1000000,
-        BankAccount.ACTIVE,
-        "RUB"
-    )
-
-    premium_account = PremiumAccount(
-        None,
-        "Премиум", 
-        50000,
-        BankAccount.ACTIVE,
-        "RUB",
-        10000,
-        5000, 
-        2
-    )   
-    investment_account = InvestmentAccount(
-        None,
-        "Мария Соколова",
-        300000,
-        BankAccount.ACTIVE,
-        "RUB",
-        {
-            "stocks": 150000,
-            "bonds": 100000,
-            "etf": 50000
-        }
-    )
-
-    savings_account = SavingsAccount(
-        None,
-        "Сбережения",
-        200000,
-        BankAccount.ACTIVE,
-        "RUB",
-        2000,
-        5
-    )
-
-    print(bank)
-    bank.withdraw(100000)
-    print(bank.get_account_info())
-
-
-    print(premium_account)
-    premium_account.withdraw(5000)
-    print(premium_account.get_account_info())
-
-    print(investment_account)
-    investment_account.withdraw(500)
-    print(investment_account.get_account_info())
-
-    print(savings_account)
-    savings_account.withdraw(5000)
-    savings_account.apply_monthly_interest()
-    print(savings_account.get_account_info())
-
-
+    # -----------------------------
+    # Создание банка
+    # -----------------------------
     bank = Bank()
 
+    # -----------------------------
     # Клиенты
-    client1 = Client(
+    # -----------------------------
+    ivan = Client(
         "Иван Иванов",
         "ACTIVE",
-        "ivan@mail.com",
-        25,
+        "+79990001111",
+        30,
         "1234"
     )
 
-    client2 = Client(
+    anna = Client(
         "Анна Петрова",
         "ACTIVE",
-        "anna@mail.com",
-        30,
+        "+79990002222",
+        27,
         "5678"
     )
 
-    bank.add_client(client1)
-    bank.add_client(client2)
+    bank.add_client(ivan)
+    bank.add_client(anna)
 
+    # -----------------------------
     # Счета
+    # -----------------------------
     account1 = BankAccount(
         None,
         "Иван Иванов",
@@ -147,82 +61,195 @@ def main():
         2
     )
 
-    # Открываем счета
-    bank.open_account(client1, account1)
-    bank.open_account(client1, account2)
-    bank.open_account(client2, account3)
+    account4 = InvestmentAccount(
+        None,
+        "Анна Петрова",
+        300000,
+        BankAccount.ACTIVE,
+        "EUR",
+        {
+            "stocks": 150000,
+            "bonds": 100000,
+            "etf": 50000
+        }
+    )
 
-    print("----- СЧЕТА -----")
+    bank.open_account(ivan, account1)
+    bank.open_account(ivan, account2)
+    bank.open_account(anna, account3)
+    bank.open_account(anna, account4)
+
+    # -----------------------------
+    # Очередь
+    # -----------------------------
+    queue = TransactionQueue()
+
+    # -----------------------------
+    # 10 транзакций
+    # -----------------------------
+
+    # 1
+    t1 = Transaction(
+        Transaction.DEPOSIT,
+        10000,
+        "RUB",
+        account1,
+        account1,
+        priority=1
+    )
+
+    # 2
+    t2 = Transaction(
+        Transaction.WITHDRAW,
+        5000,
+        "RUB",
+        account1,
+        account1,
+        priority=1
+    )
+
+    # 3
+    t3 = Transaction(
+        Transaction.TRANSFER,
+        15000,
+        "RUB",
+        account1,
+        account2,
+        priority=2
+    )
+
+    # 4
+    t4 = Transaction(
+        Transaction.TRANSFER,
+        20000,
+        "RUB",
+        account1,
+        account3,
+        priority=3
+    )
+
+    # 5
+    t5 = Transaction(
+        Transaction.TRANSFER,
+        30000,
+        "USD",
+        account3,
+        account4,
+        priority=2
+    )
+
+    # 6
+    t6 = Transaction(
+        Transaction.WITHDRAW,
+        1000,
+        "EUR",
+        account4,
+        account4,
+        priority=1
+    )
+
+    # 7
+    t7 = Transaction(
+        Transaction.DEPOSIT,
+        25000,
+        "USD",
+        account3,
+        account3,
+        priority=1
+    )
+
+    # 8
+    t8 = Transaction(
+        Transaction.TRANSFER,
+        500000,
+        "RUB",
+        account1,
+        account3,
+        priority=5
+    )
+
+    # 9
+    bank.freeze_account(account2)
+
+    t9 = Transaction(
+        Transaction.TRANSFER,
+        1000,
+        "RUB",
+        account1,
+        account2,
+        priority=4
+    )
+
+    # 10
+    t10 = Transaction(
+        Transaction.TRANSFER,
+        7000,
+        "USD",
+        account3,
+        account1,
+        priority=2
+    )
+
+    # -----------------------------
+    # Добавляем в очередь
+    # -----------------------------
+    for transaction in [
+        t1,
+        t2,
+        t3,
+        t4,
+        t5,
+        t6,
+        t7,
+        t8,
+        t9,
+        t10
+    ]:
+        queue.add_transaction(transaction)
+
+    print(queue)
+
+    # -----------------------------
+    # Обработка
+    # -----------------------------
+    processor = TransactionProcessor(queue)
+
+    processor.process_transactions()
+
+    # -----------------------------
+    # Итоги
+    # -----------------------------
+    print("\n------ СТАТУСЫ ------")
+
+    for transaction in [
+        t1,
+        t2,
+        t3,
+        t4,
+        t5,
+        t6,
+        t7,
+        t8,
+        t9,
+        t10
+    ]:
+        print(
+            transaction.id,
+            transaction.transaction_type,
+            transaction.status,
+            transaction.failure_reason
+        )
+
+    print("\n------ СЧЕТА ------")
     print(account1)
     print(account2)
     print(account3)
+    print(account4)
 
-    # Проверяем поиск счетов
-    print("\n----- СЧЕТА ИВАНА -----")
-    accounts = bank.search_accounts(
-        "Иван Иванов"
-    )
+    print("\n------ ЛОГ ОШИБОК ------")
 
-    for account in accounts:
-        print(account)
-
-    # Авторизация
-    print("\n----- ВХОД -----")
-
-    print(
-        bank.authenticate_client(
-            client1,
-            "1234"
-        )
-    )
-
-
-    # 3 неправильных входа
-    print(
-        bank.authenticate_client(
-            client2,
-            "0000"
-        )
-    )
-
-    print(
-        bank.authenticate_client(
-            client2,
-            "1111"
-        )
-    )
-
-    try:
-        bank.authenticate_client(
-            client2,
-            "2222"
-        )
-    except InvalidOperationError as error:
+    for error in processor.error_log:
         print(error)
-    print(
-        "Анна заблокирована:",
-        client2.is_blocked
-    )
-
-    # Заморозка счета
-    print("\n----- ЗАМОРОЗКА -----")
-    bank.freeze_account(account1)
-    print(account1)
-
-    try:
-        account1.withdraw(1000)
-
-    except AccountFrozenError as error:
-        print(error)
-
-
-
-    # Подозрительные действия
-    print("\n----- ЛОГ -----")
-
-    for action in bank.suspicious_actions:
-        print(action)
-
 
 if __name__ == "__main__":
     main()

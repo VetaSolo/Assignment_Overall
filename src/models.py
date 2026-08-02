@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from datetime import datetime, timedelta
 import uuid
 from xmlrpc import client
 
@@ -114,8 +115,6 @@ class BankAccount(AbstractAccount):
             f"💰 {self._balance} {self.currency}"
         )
 
-
-
 class SavingsAccount(BankAccount):
 
     def __init__(self, id, owner_data, balance, account_status, currency, min_balance, monthly_return):
@@ -222,7 +221,6 @@ class PremiumAccount(BankAccount):
             f"💸 commission: {self.commission}"
         )
     
-
 class InvestmentAccount(BankAccount):
     def __init__(self, id, owner_data, balance, account_status, currency, portfolio):
 
@@ -268,7 +266,6 @@ class InvestmentAccount(BankAccount):
             f"📈 {self.portfolio}"
         )
 
-
 class Client:
     def __init__(self, full_name, status, contacts, age, password):
         self.full_name = full_name
@@ -283,8 +280,6 @@ class Client:
 
         if self.age < 18:
                     raise InvalidOperationError("Клиент должен быть старше 18 лет")
-
-
 
 class Bank:
     def __init__(self):
@@ -365,4 +360,225 @@ class Bank:
             for account in self.accounts
             if account.owner_data == owner_name
         ]
+
+class Transaction:
+    CREATED = "CREATED"
+    PROCESSING = "PROCESSING"
+    COMPLETED = "COMPLETED"
+    FAILED = "FAILED"
+    CANCELLED = "CANCELLED"
+
+    ALLOWED_TRANSACTION_STATUSES = [
+            CREATED,
+            PROCESSING,
+            COMPLETED,
+            FAILED,
+            CANCELLED
+        ]
+
+    TRANSFER = "TRANSFER"
+    DEPOSIT = "DEPOSIT"
+    WITHDRAW = "WITHDRAW"
+
+    ALLOWED_TRANSACTION_TYPES = [
+            TRANSFER,
+            DEPOSIT,
+            WITHDRAW
+        ]
+
+    def __init__(
+        self,
+        transaction_type,
+        amount,
+        currency,
+        sender,
+        receiver,
+        commission=0,
+        priority=0
+    ):
+
+        if transaction_type not in self.ALLOWED_TRANSACTION_TYPES:
+            raise InvalidOperationError("Неизвестный тип транзакции")
+    
+        if amount <= 0:
+            raise InvalidOperationError("Сумма должна быть положительной")  
+    
+        if commission < 0:
+            raise InvalidOperationError("Комиссия не может быть отрицательной")
         
+        self.id = str(uuid.uuid4())[:8] 
+        self.transaction_type = transaction_type
+        self.amount = amount
+        self.currency = currency
+        self.sender = sender
+        self.receiver = receiver
+        self.commission = commission
+        self.status = self.CREATED
+        self.created_at = datetime.now()
+        self.execute_at = None
+        self.failure_reason = None
+        self.priority = priority
+
+        
+class TransactionQueue:
+    def __init__(self):
+        self.queue = []
+
+    def add_transaction(self, transaction):
+        self.queue.append(transaction)
+        self.queue.sort(key=lambda x: x.priority, reverse=True) 
+
+    def get_next_transaction(self):
+        if self.queue:
+            return self.queue.pop(0)
+        return None
+
+    def cancel_transaction(self, transaction):
+        if transaction in self.queue:
+            transaction.status = Transaction.CANCELLED
+            self.queue.remove(transaction) 
+
+    def delayed_transaction(self, transaction, delay_time):
+
+        if delay_time <= 0:
+            raise InvalidOperationError(
+                "Время задержки должно быть положительным")
+        if transaction in self.queue:
+            transaction.execute_at = (
+                datetime.now() + timedelta(minutes=delay_time)
+            )
+
+    def __str__(self):
+        return f"TransactionQueue({len(self.queue)} transactions)"
+    
+class TransactionProcessor:
+
+    EXCHANGE_RATES = {
+        ("RUB", "USD"): 1 / 80,
+        ("USD", "RUB"): 80,
+
+        ("RUB", "EUR"): 1 / 90,
+        ("EUR", "RUB"): 90,
+
+        ("USD", "EUR"): 0.9,
+        ("EUR", "USD"): 1.11,
+
+        ("RUB", "KZT"): 6.5,
+        ("KZT", "RUB"): 1 / 6.5,
+
+        ("RUB", "CNY"): 0.09,
+        ("CNY", "RUB"): 11
+        }
+
+    def __init__(self, transaction_queue):
+        self.transaction_queue = transaction_queue
+        self.error_log = []
+        self.max_retries = 3
+
+    def convert_currency(self, amount, from_currency, to_currency):
+        if from_currency == to_currency:
+            return amount
+
+        rate = self.EXCHANGE_RATES.get(
+            (from_currency, to_currency)
+        )
+
+        if rate is None:
+            raise InvalidOperationError(
+                "Конвертация невозможна"
+            )
+
+        return amount * rate
+
+    def process_transactions(self):
+        while True:
+            transaction = self.transaction_queue.get_next_transaction()
+            if not transaction:
+                break
+
+            if transaction.execute_at and transaction.execute_at > datetime.now():
+                self.transaction_queue.add_transaction(transaction)
+                continue
+            attempt = 0
+
+            while attempt < self.max_retries:
+                try:
+                    self._process_transaction(transaction)
+                    transaction.status = Transaction.COMPLETED
+                    break
+
+                except Exception as e:
+                    attempt += 1
+
+                    self.error_log.append(
+                        f"Attempt {attempt} for transaction {transaction.id}: {e}")
+
+                    if attempt == self.max_retries:
+                        transaction.status = Transaction.FAILED
+                        transaction.failure_reason = str(e)
+
+
+    def _process_transaction(self, transaction):
+        transaction.status = Transaction.PROCESSING
+
+        # Проверка статусов
+        if (
+            transaction.sender
+            and transaction.sender.account_status != BankAccount.ACTIVE
+        ):
+            raise InvalidOperationError("Счет отправителя недоступен")
+
+        if (
+            transaction.receiver
+            and transaction.receiver.account_status != BankAccount.ACTIVE
+        ):
+            raise InvalidOperationError("Счет получателя недоступен")
+
+        # Проверка баланса
+        if (
+            transaction.sender
+            and not isinstance(transaction.sender, PremiumAccount)
+            and transaction.sender._balance < transaction.amount
+        ):
+            raise InsufficientFundsError("Недостаточно средств")
+
+        # Пополнение
+        if transaction.transaction_type == Transaction.DEPOSIT:
+
+            transaction.receiver.deposit(
+                transaction.amount
+            )
+
+        # Снятие
+        elif transaction.transaction_type == Transaction.WITHDRAW:
+
+            transaction.sender.withdraw(
+                transaction.amount
+            )
+
+        # Перевод
+        elif transaction.transaction_type == Transaction.TRANSFER:
+
+            commission = self.calculate_commission(transaction)
+            transaction.commission = commission
+
+            total_amount = transaction.amount + commission
+
+            converted_amount = self.convert_currency(
+                transaction.amount,
+                transaction.sender.currency,
+                transaction.receiver.currency
+            )
+
+            transaction.sender.withdraw(
+                total_amount
+            )
+
+            transaction.receiver.deposit(
+                converted_amount
+            )
+
+    def calculate_commission(self, transaction):
+        if transaction.transaction_type == Transaction.TRANSFER:
+            return transaction.amount * 0.02
+        return 0
