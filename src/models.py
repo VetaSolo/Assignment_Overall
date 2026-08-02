@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from datetime import datetime, timedelta
+from unittest import result
 import uuid
-from xmlrpc import client
 
 class AccountFrozenError(Exception):
     pass
@@ -70,7 +70,6 @@ class BankAccount(AbstractAccount):
         self.currency = currency
 
 
-
     def deposit(self, amount):
         if self.account_status == BankAccount.FROZEN:
             raise AccountFrozenError("Счет заморожен")
@@ -97,7 +96,7 @@ class BankAccount(AbstractAccount):
             raise InsufficientFundsError("Недостаточно средств")
     
         self._balance -= amount
-        
+    
     
     def get_account_info(self):
         return { 
@@ -109,7 +108,7 @@ class BankAccount(AbstractAccount):
     def __str__(self):
         return (
             f"🏦 {type(self).__name__} | "
-            f"👤 {self.owner_data} | "
+            f"👤 {self.owner_data.full_name} | "
             f"****{self.id[-4:]} | "
             f"📊 {self.account_status} | "
             f"💰 {self._balance} {self.currency}"
@@ -277,9 +276,19 @@ class Client:
         self.age = age
         self.is_blocked = False
         self.failed_attempts = 0
+        self.transactions = []
 
         if self.age < 18:
                     raise InvalidOperationError("Клиент должен быть старше 18 лет")
+
+    def show_history(self):
+        for transaction in self.transactions:
+            print(
+                transaction.id,
+                transaction.transaction_type,
+                transaction.amount,
+                transaction.status
+            )
 
 class Bank:
     def __init__(self):
@@ -292,10 +301,16 @@ class Bank:
             self.clients.append(client)
 
     def open_account(self, client, account):
+        if client not in self.clients:
+            raise InvalidOperationError(
+                "Клиент не зарегистрирован"
+            )
+
         self.accounts.append(account)
 
         client.account_numbers.append(
-            account.id)
+            account.id
+        )
 
     def close_account(self, account):
         account.account_status = BankAccount.CLOSED
@@ -354,12 +369,52 @@ class Bank:
             raise InvalidOperationError(
                 "Операции доступны только с 00:00 до 05:00"
             )    
-    def search_accounts(self, owner_name):
+    def search_accounts(self, client):
         return [
             account
             for account in self.accounts
-            if account.owner_data == owner_name
+            if account.owner_data.id == client.id
         ]
+    def get_clients_ranking(self):
+        ranking = []
+        for client in self.clients:
+            balance = sum(
+                account._balance
+                for account in self.accounts
+                if account.owner_data.id == client.id
+            )
+
+            ranking.append(
+                {
+                    "client": client.full_name,
+                    "balance": balance
+                }
+            )
+
+        return sorted(
+            ranking,
+            key=lambda x: x["balance"],
+            reverse=True
+        )
+    def transaction_statistics(self, transactions):
+            result = {
+                "total":0,
+                "completed":0,
+                "failed":0
+            }
+            for transaction in transactions:
+                result["total"] += 1
+                if transaction.status == Transaction.COMPLETED:
+                    result["completed"] += 1
+                if transaction.status == Transaction.FAILED:
+                    result["failed"] += 1
+            return result
+    def get_total_balance(self):
+            total = 0
+            for account in self.accounts:
+                total += account._balance
+    
+            return round(total, 2)
 
 class Transaction:
     CREATED = "CREATED"
@@ -523,6 +578,17 @@ class TransactionProcessor:
                 transaction.status = (
                     Transaction.COMPLETED
                 )
+
+                if transaction.sender:
+                    transaction.sender.owner_data.transactions.append(
+                        transaction
+                    )
+                if transaction.receiver:
+                    transaction.receiver.owner_data.transactions.append(
+                        transaction
+                    )
+
+
                 self.audit_log.add_record(
                     AuditLog.LOW,
                     f"Transaction {transaction.id} completed"
@@ -606,6 +672,8 @@ class TransactionProcessor:
         if transaction.transaction_type == Transaction.TRANSFER:
             return transaction.amount * 0.02
         return 0
+
+    
 
 class AuditLog:
 

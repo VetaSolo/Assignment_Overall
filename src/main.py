@@ -1,290 +1,268 @@
-from models import AuditLog, BankAccount, AccountFrozenError, AccountClosedError, InvalidOperationError, InsufficientFundsError, PremiumAccount, InvestmentAccount, RiskAnalyzer, SavingsAccount, Bank, Client, Transaction, TransactionProcessor, TransactionProcessor, TransactionQueue, TransactionProcessor
-
+from models import *
+import random
 
 def main():
     # -----------------------------
     # Создание банка
     # -----------------------------
     bank = Bank()
+    audit = AuditLog()
+    risk = RiskAnalyzer()
+    queue = TransactionQueue()
+    processor = TransactionProcessor(
+        queue,
+        risk,
+        audit
+    )
 
     # -----------------------------
     # Клиенты
     # -----------------------------
-    ivan = Client(
+    clients = []
+
+
+    names = [
         "Иван Иванов",
-        "ACTIVE",
-        "+79990001111",
-        30,
-        "1234"
-    )
-
-    anna = Client(
         "Анна Петрова",
-        "ACTIVE",
-        "+79990002222",
-        27,
-        "5678"
-    )
+        "Мария Соколова",
+        "Петр Смирнов",
+        "Елена Орлова",
+        "Алексей Волков"
+    ]
 
-    bank.add_client(ivan)
-    bank.add_client(anna)
+
+    for name in names:
+
+        client = Client(
+            name,
+            "ACTIVE",
+            "+79990000000",
+            random.randint(20,60),
+            "1234"
+        )
+
+        bank.add_client(client)
+
+        clients.append(client)
 
     # -----------------------------
     # Счета
     # -----------------------------
-    account1 = BankAccount(
-        None,
-        "Иван Иванов",
-        100000,
-        BankAccount.ACTIVE,
-        "RUB"
-    )
+    accounts=[]
+    for client in clients:
+        account = BankAccount(
+            None,
+            client,
+            random.randint(50000,300000),
+            BankAccount.ACTIVE,
+            "RUB"
+        )
 
-    account2 = SavingsAccount(
-        None,
-        "Иван Иванов",
-        50000,
-        BankAccount.ACTIVE,
-        "RUB",
-        10000,
-        5
-    )
+        bank.open_account(
+            client,
+            account
+        )
+        accounts.append(account)
 
-    account3 = PremiumAccount(
+    premium = PremiumAccount(
         None,
-        "Анна Петрова",
-        200000,
+        clients[1],
+        500000,
         BankAccount.ACTIVE,
         "USD",
         50000,
         10000,
         2
     )
+    bank.open_account(
+        clients[1],
+        premium
+    )
+    accounts.append(premium)
 
-    account4 = InvestmentAccount(
+
+    savings = SavingsAccount(
         None,
-        "Анна Петрова",
+        clients[3],
+        100000,
+        BankAccount.ACTIVE,
+        "RUB",
+        10000,
+        5
+    )
+    bank.open_account(
+        clients[3],
+        savings
+    )
+    accounts.append(savings)
+
+    investment = InvestmentAccount(
+        None,
+        clients[2],
         300000,
         BankAccount.ACTIVE,
         "EUR",
         {
-            "stocks": 150000,
-            "bonds": 100000,
-            "etf": 50000
+            "stocks":150000,
+            "bonds":100000,
+            "etf":50000
         }
     )
+    bank.open_account(
+        clients[2],
+        investment
+    )
+    accounts.append(investment)
 
-    bank.open_account(ivan, account1)
-    bank.open_account(ivan, account2)
-    bank.open_account(anna, account3)
-    bank.open_account(anna, account4)
-
-    # -----------------------------
-    # Очередь
-    # -----------------------------
-    queue = TransactionQueue()
-
-    # -----------------------------
-    # 10 транзакций
-    # -----------------------------
-
-    # 1
-    t1 = Transaction(
-        Transaction.DEPOSIT,
-        10000,
+    premium2 = PremiumAccount(
+        None,
+        clients[4],
+        700000,
+        BankAccount.ACTIVE,
         "RUB",
-        account1,
-        account1,
-        priority=1
+        100000,
+        20000,
+        1
+    )
+    bank.open_account(
+        clients[4],
+        premium2
+    )
+    accounts.append(premium2)
+
+
+
+    # -----------------------------
+    # 40 транзакций
+    # -----------------------------
+
+    transactions=[]
+
+    for i in range(40):
+        sender = random.choice(accounts)
+        receiver = random.choice(accounts)
+
+        if i < 30:
+            amount = random.randint(
+                1000,
+                30000
+            )
+
+        else:
+            amount = random.randint(
+                200000,
+                1000000
+            )
+
+        transaction = Transaction(
+            Transaction.TRANSFER,
+            amount,
+            sender.currency,
+            sender,
+            receiver,
+            priority=random.randint(1,5)
+        )
+
+        transactions.append(transaction)
+
+        queue.add_transaction(
+            transaction
+        )
+
+    danger_transaction = Transaction(
+        Transaction.TRANSFER,
+        1000000,
+        "RUB",
+        accounts[0],
+        accounts[1],
+        priority=10
     )
 
-    # 2
-    t2 = Transaction(
-        Transaction.WITHDRAW,
+    transactions.append(
+        danger_transaction
+    )
+
+    queue.add_transaction(
+        danger_transaction
+    )
+
+    bank.freeze_account(
+        accounts[2]
+    )
+
+    bad_transaction = Transaction(
+        Transaction.TRANSFER,
         5000,
         "RUB",
-        account1,
-        account1,
-        priority=1
+        accounts[0],
+        accounts[2]
     )
-
-    # 3
-    t3 = Transaction(
-        Transaction.TRANSFER,
-        15000,
-        "RUB",
-        account1,
-        account2,
-        priority=2
+    transactions.append(
+        bad_transaction
     )
-
-    # 4
-    t4 = Transaction(
-        Transaction.TRANSFER,
-        20000,
-        "RUB",
-        account1,
-        account3,
-        priority=3
-    )
-
-    # 5
-    t5 = Transaction(
-        Transaction.TRANSFER,
-        30000,
-        "USD",
-        account3,
-        account4,
-        priority=2
-    )
-
-    # 6
-    t6 = Transaction(
-        Transaction.WITHDRAW,
-        1000,
-        "EUR",
-        account4,
-        account4,
-        priority=1
-    )
-
-    # 7
-    t7 = Transaction(
-        Transaction.DEPOSIT,
-        25000,
-        "USD",
-        account3,
-        account3,
-        priority=1
-    )
-
-    # 8
-    t8 = Transaction(
-        Transaction.TRANSFER,
-        500000,
-        "RUB",
-        account1,
-        account3,
-        priority=5
-    )
-
-    # 9
-    bank.freeze_account(account2)
-
-    t9 = Transaction(
-        Transaction.TRANSFER,
-        1000,
-        "RUB",
-        account1,
-        account2,
-        priority=4
-    )
-
-    # 10
-    t10 = Transaction(
-        Transaction.TRANSFER,
-        7000,
-        "USD",
-        account3,
-        account1,
-        priority=2
+    queue.add_transaction(
+        bad_transaction
     )
 
     # -----------------------------
     # Добавляем в очередь
     # -----------------------------
-    for transaction in [
-        t1,
-        t2,
-        t3,
-        t4,
-        t5,
-        t6,
-        t7,
-        t8,
-        t9,
-        t10
-    ]:
-        queue.add_transaction(transaction)
-
+   
     print(queue)
 
-    # -----------------------------
-    # Обработка
-    # -----------------------------
-    audit = AuditLog()
-
-    analyzer = RiskAnalyzer()
-
-    processor = TransactionProcessor(
-        queue,
-        analyzer,
-        audit
-        )
-    
     processor.process_transactions()
 
     # -----------------------------
     # Итоги
     # -----------------------------
-    print("\n------ СТАТУСЫ ------")
+    print(
+    "----- СЧЕТА ИВАНА -----"
+    )
+    for account in accounts:
+        if account.owner_data.full_name == "Иван Иванов":
+            print(account)
 
-    for transaction in [
-        t1,
-        t2,
-        t3,
-        t4,
-        t5,
-        t6,
-        t7,
-        t8,
-        t9,
-        t10
-    ]:
-        print(
-            transaction.id,
-            transaction.transaction_type,
-            transaction.status,
-            transaction.failure_reason
-        )
+    print(
+    "----- ИСТОРИЯ ИВАНА -----"
+    )
+    clients[0].show_history()
 
-    print("\n------ СЧЕТА ------")
-    print(account1)
-    print(account2)
-    print(account3)
-    print(account4)
-
-    print("\n------ ЛОГ ОШИБОК ------")
-
-    for error in processor.error_log:
-        print(error)
-
-    print("\n------ AUDIT ------")
-
-    for record in audit.records:
-
-        print(
-            record["time"],
-            record["level"],
-            record["message"]
-        )
+    print(
+        f"Всего операций: {len(clients[0].transactions)}"
+    )
 
 
-
-    print("\n------ SUSPICIOUS ------")
-    for item in analyzer.get_suspicious_operations():
-
+    print(
+    "----- RISK -----"
+    )
+    for item in risk.get_suspicious_operations():
         print(
             item["transaction"].id,
             item["risk"],
             item["reason"]
         )
 
-    print("\n------ CLIENT RISK ------")
+    print(
+    "----- TOP CLIENTS -----"
+    )
+    for client in bank.get_clients_ranking()[:3]:
+        print(client)
 
     print(
-        analyzer.get_client_risk_profile()
+        bank.transaction_statistics(
+            transactions
     )
+    )
+
+    print(
+    "TOTAL BALANCE:",
+    bank.get_total_balance()
+    )
+
+
+
+
+
 
 if __name__ == "__main__":
     main()
