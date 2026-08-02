@@ -1,0 +1,20 @@
+2026-08-02 20:53:16.770730 | HIGH | Transaction 7399cf2a: ['Крупная сумма операции', 'Перевод новому получателю']
+2026-08-02 20:53:16.770730 | HIGH | Transaction 7399cf2a failed: Операция заблокирована системой безопасности
+2026-08-02 20:53:16.770730 | MEDIUM | Transaction 4b2e5f93: ['Перевод новому получателю']
+2026-08-02 20:53:16.780385 | HIGH | Transaction 4b2e5f93 failed: Счет получателя недоступен
+2026-08-02 20:53:16.780385 | LOW | Transaction f8d3764e: []
+2026-08-02 20:53:16.780385 | LOW | Transaction f8d3764e completed
+2026-08-02 20:53:16.781404 | LOW | Transaction fcc625d2: []
+2026-08-02 20:53:16.781980 | HIGH | Transaction fcc625d2 failed: Счет получателя недоступен
+2026-08-02 20:53:16.781980 | MEDIUM | Transaction a338b241: ['Перевод новому получателю']
+2026-08-02 20:53:16.781980 | LOW | Transaction a338b241 completed
+2026-08-02 20:53:16.781980 | MEDIUM | Transaction f503d301: ['Перевод новому получателю']
+2026-08-02 20:53:16.782995 | LOW | Transaction f503d301 completed
+2026-08-02 20:53:16.782995 | MEDIUM | Transaction ba8945bb: ['Слишком много операций за короткое время', 'Перевод новому получателю']
+2026-08-02 20:53:16.782995 | LOW | Transaction ba8945bb completed
+2026-08-02 20:53:16.782995 | MEDIUM | Transaction 7e1116ab: ['Слишком много операций за короткое время']
+2026-08-02 20:53:16.782995 | LOW | Transaction 7e1116ab completed
+2026-08-02 20:53:16.783986 | LOW | Transaction d6fc0db1: []
+2026-08-02 20:53:16.783986 | LOW | Transaction d6fc0db1 completed
+2026-08-02 20:53:16.783986 | MEDIUM | Transaction bbb83e81: ['Перевод новому получателю']
+2026-08-02 20:53:16.783986 | LOW | Transaction bbb83e81 completed

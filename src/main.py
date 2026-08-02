@@ -1,4 +1,4 @@
-from models import BankAccount, AccountFrozenError, AccountClosedError, InvalidOperationError, InsufficientFundsError, PremiumAccount, InvestmentAccount, SavingsAccount, Bank, Client, Transaction, TransactionProcessor, TransactionProcessor, TransactionQueue, TransactionProcessor
+from models import AuditLog, BankAccount, AccountFrozenError, AccountClosedError, InvalidOperationError, InsufficientFundsError, PremiumAccount, InvestmentAccount, RiskAnalyzer, SavingsAccount, Bank, Client, Transaction, TransactionProcessor, TransactionProcessor, TransactionQueue, TransactionProcessor
 
 
 def main():
@@ -212,8 +212,16 @@ def main():
     # -----------------------------
     # Обработка
     # -----------------------------
-    processor = TransactionProcessor(queue)
+    audit = AuditLog()
 
+    analyzer = RiskAnalyzer()
+
+    processor = TransactionProcessor(
+        queue,
+        analyzer,
+        audit
+        )
+    
     processor.process_transactions()
 
     # -----------------------------
@@ -250,6 +258,33 @@ def main():
 
     for error in processor.error_log:
         print(error)
+
+    print("\n------ AUDIT ------")
+
+    for record in audit.records:
+
+        print(
+            record["time"],
+            record["level"],
+            record["message"]
+        )
+
+
+
+    print("\n------ SUSPICIOUS ------")
+    for item in analyzer.get_suspicious_operations():
+
+        print(
+            item["transaction"].id,
+            item["risk"],
+            item["reason"]
+        )
+
+    print("\n------ CLIENT RISK ------")
+
+    print(
+        analyzer.get_client_risk_profile()
+    )
 
 if __name__ == "__main__":
     main()

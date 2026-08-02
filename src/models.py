@@ -470,10 +470,14 @@ class TransactionProcessor:
         ("CNY", "RUB"): 11
         }
 
-    def __init__(self, transaction_queue):
+    def __init__(self, transaction_queue, risk_analyzer, audit_log ):
         self.transaction_queue = transaction_queue
         self.error_log = []
         self.max_retries = 3
+
+        self.transaction_queue = transaction_queue
+        self.risk_analyzer = risk_analyzer
+        self.audit_log = audit_log
 
     def convert_currency(self, amount, from_currency, to_currency):
         if from_currency == to_currency:
@@ -492,30 +496,50 @@ class TransactionProcessor:
 
     def process_transactions(self):
         while True:
-            transaction = self.transaction_queue.get_next_transaction()
+            transaction = (
+                self.transaction_queue
+                .get_next_transaction()
+            )
             if not transaction:
                 break
+            try:
+                # анализ риска
+                risk, reasons = (
+                    self.risk_analyzer
+                    .analyze(transaction)
+                )
+                self.audit_log.add_record(
+                    risk,
+                    f"Transaction {transaction.id}: {reasons}"
+                )
+                # опасная операция
+                if risk == RiskAnalyzer.HIGH:
+                    raise InvalidOperationError(
+                        "Операция заблокирована системой безопасности"
+                    )
+                self._process_transaction(
+                    transaction
+                )
+                transaction.status = (
+                    Transaction.COMPLETED
+                )
+                self.audit_log.add_record(
+                    AuditLog.LOW,
+                    f"Transaction {transaction.id} completed"
+                )
+            except Exception as e:
+                transaction.status = (
+                    Transaction.FAILED
+                )
+                transaction.failure_reason = str(e)
+                self.error_log.append(
+                    str(e)
+                )
 
-            if transaction.execute_at and transaction.execute_at > datetime.now():
-                self.transaction_queue.add_transaction(transaction)
-                continue
-            attempt = 0
-
-            while attempt < self.max_retries:
-                try:
-                    self._process_transaction(transaction)
-                    transaction.status = Transaction.COMPLETED
-                    break
-
-                except Exception as e:
-                    attempt += 1
-
-                    self.error_log.append(
-                        f"Attempt {attempt} for transaction {transaction.id}: {e}")
-
-                    if attempt == self.max_retries:
-                        transaction.status = Transaction.FAILED
-                        transaction.failure_reason = str(e)
+                self.audit_log.add_record(
+                    AuditLog.HIGH,
+                    f"Transaction {transaction.id} failed: {e}"
+                )
 
 
     def _process_transaction(self, transaction):
@@ -582,3 +606,147 @@ class TransactionProcessor:
         if transaction.transaction_type == Transaction.TRANSFER:
             return transaction.amount * 0.02
         return 0
+
+class AuditLog:
+
+    LOW = "LOW"
+    MEDIUM = "MEDIUM"
+    HIGH = "HIGH"
+
+    ALLOWED_LEVELS = [
+        LOW,
+        MEDIUM,
+        HIGH
+    ]
+
+    def __init__(self, filename="audit.log"):
+        self.records = []
+        self.filename = filename
+
+    def add_record(self, level, message):
+
+        if level not in self.ALLOWED_LEVELS:
+            raise InvalidOperationError(
+                "Неизвестный уровень важности"
+            )
+        record = {
+            "time": datetime.now(),
+            "level": level,
+            "message": message
+        }
+        self.records.append(record)
+        with open(self.filename, "a", encoding="utf-8") as file:
+            file.write(
+                f"{record['time']} | "
+                f"{record['level']} | "
+                f"{record['message']}\n"
+            )
+    def filter_records(self, level):
+        if level not in self.ALLOWED_LEVELS:
+            raise InvalidOperationError(
+                "Неизвестный уровень важности"
+            )
+        return [
+            record
+            for record in self.records
+            if record["level"] == level
+        ]
+    def __str__(self):
+        return (
+            f"AuditLog(records={len(self.records)})"
+        )
+
+class RiskAnalyzer:
+
+    LOW = "LOW"
+    MEDIUM = "MEDIUM"
+    HIGH = "HIGH"
+
+    def __init__(self):
+        # история операций клиентов
+        self.transaction_history = {}
+        # известные получатели
+        self.known_receivers = {}
+        # подозрительные операции
+        self.suspicious_operations = []
+
+
+    def analyze(self, transaction):
+        risk_level = self.LOW
+        reasons = []
+
+        # 1. Проверка большой суммы
+        if transaction.amount >= 100000:
+            risk_level = self.HIGH
+            reasons.append(
+                "Крупная сумма операции"
+            )
+
+        # 2. Проверка частых операций
+        sender = transaction.sender.owner_data
+        if sender not in self.transaction_history:
+            self.transaction_history[sender] = []
+        self.transaction_history[sender].append(
+            datetime.now()
+        )
+        recent_operations = [
+            time
+            for time in self.transaction_history[sender]
+            if datetime.now() - time < timedelta(minutes=5)
+        ]
+        if len(recent_operations) >= 5:
+            risk_level = self.MEDIUM
+            reasons.append(
+                "Слишком много операций за короткое время"
+            )
+
+        # 3. Проверка нового получателя
+        if transaction.receiver:
+            receiver = transaction.receiver.id
+            if sender not in self.known_receivers:
+                self.known_receivers[sender] = set()
+            if receiver not in self.known_receivers[sender]:
+                self.known_receivers[sender].add(receiver)
+                if risk_level != self.HIGH:
+                    risk_level = self.MEDIUM
+                reasons.append(
+                    "Перевод новому получателю"
+                )
+        # 4. Проверка ночного времени
+        current_hour = datetime.now().hour
+        if 0 <= current_hour < 5:
+            risk_level = self.HIGH
+            reasons.append(
+                "Операция в ночное время"
+            )
+        # сохраняем подозрительные
+        if risk_level != self.LOW:
+            self.suspicious_operations.append(
+                {
+                    "transaction": transaction,
+                    "risk": risk_level,
+                    "reason": reasons
+                }
+            )
+        return risk_level, reasons
+
+    def get_suspicious_operations(self):
+        return self.suspicious_operations
+
+    def get_client_risk_profile(self):
+        profile = {}
+        for item in self.suspicious_operations:
+            transaction = item["transaction"]
+            client = transaction.sender.owner_data
+            if client not in profile:
+                profile[client] = {
+                    "risk": item["risk"],
+                    "count": 0
+                }
+
+            profile[client]["count"] += 1
+
+            if item["risk"] == self.HIGH:
+
+                profile[client]["risk"] = self.HIGH
+        return profile
