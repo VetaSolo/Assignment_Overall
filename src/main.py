@@ -1,25 +1,40 @@
 from models import *
 import random
 
+from utils import ReportBuilder
+
+
+def money(value):
+    """
+    Красивый вывод денежных значений
+    """
+    return f"{float(value):,.2f}".replace(",", " ")
+
+
 def main():
-    # -----------------------------
-    # Создание банка
-    # -----------------------------
+
+    # ===============================
+    # Создание банка и сервисов
+    # ===============================
+
     bank = Bank()
+
     audit = AuditLog()
     risk = RiskAnalyzer()
     queue = TransactionQueue()
+
     processor = TransactionProcessor(
         queue,
         risk,
         audit
     )
 
-    # -----------------------------
-    # Клиенты
-    # -----------------------------
-    clients = []
 
+    # ===============================
+    # Клиенты
+    # ===============================
+
+    clients = []
 
     names = [
         "Иван Иванов",
@@ -37,23 +52,27 @@ def main():
             name,
             "ACTIVE",
             "+79990000000",
-            random.randint(20,60),
+            random.randint(20, 60),
             "1234"
         )
 
         bank.add_client(client)
-
         clients.append(client)
 
-    # -----------------------------
+
+    # ===============================
     # Счета
-    # -----------------------------
-    accounts=[]
+    # ===============================
+
+    accounts = []
+
+
     for client in clients:
+
         account = BankAccount(
             None,
             client,
-            random.randint(50000,300000),
+            random.randint(50000, 300000),
             BankAccount.ACTIVE,
             "RUB"
         )
@@ -62,7 +81,9 @@ def main():
             client,
             account
         )
+
         accounts.append(account)
+
 
     premium = PremiumAccount(
         None,
@@ -74,10 +95,12 @@ def main():
         10000,
         2
     )
+
     bank.open_account(
         clients[1],
         premium
     )
+
     accounts.append(premium)
 
 
@@ -90,11 +113,15 @@ def main():
         10000,
         5
     )
+
     bank.open_account(
         clients[3],
         savings
     )
+
     accounts.append(savings)
+
+
 
     investment = InvestmentAccount(
         None,
@@ -103,16 +130,20 @@ def main():
         BankAccount.ACTIVE,
         "EUR",
         {
-            "stocks":150000,
-            "bonds":100000,
-            "etf":50000
+            "stocks": 150000,
+            "bonds": 100000,
+            "etf": 50000
         }
     )
+
     bank.open_account(
         clients[2],
         investment
     )
+
     accounts.append(investment)
+
+
 
     premium2 = PremiumAccount(
         None,
@@ -124,23 +155,28 @@ def main():
         20000,
         1
     )
+
     bank.open_account(
         clients[4],
         premium2
     )
+
     accounts.append(premium2)
 
 
 
-    # -----------------------------
-    # 40 транзакций
-    # -----------------------------
+    # ===============================
+    # Создание транзакций
+    # ===============================
 
-    transactions=[]
+    transactions = []
+
 
     for i in range(40):
+
         sender = random.choice(accounts)
         receiver = random.choice(accounts)
+
 
         if i < 30:
             amount = random.randint(
@@ -154,20 +190,26 @@ def main():
                 1000000
             )
 
+
         transaction = Transaction(
             Transaction.TRANSFER,
             amount,
             sender.currency,
             sender,
             receiver,
-            priority=random.randint(1,5)
+            priority=random.randint(1, 5)
         )
+
 
         transactions.append(transaction)
 
         queue.add_transaction(
             transaction
         )
+
+
+
+    # опасная операция
 
     danger_transaction = Transaction(
         Transaction.TRANSFER,
@@ -186,9 +228,14 @@ def main():
         danger_transaction
     )
 
+
+
+    # замороженный счет
+
     bank.freeze_account(
         accounts[2]
     )
+
 
     bad_transaction = Transaction(
         Transaction.TRANSFER,
@@ -197,34 +244,45 @@ def main():
         accounts[0],
         accounts[2]
     )
+
+
     transactions.append(
         bad_transaction
     )
+
     queue.add_transaction(
         bad_transaction
     )
 
-    # -----------------------------
-    # Добавляем в очередь
-    # -----------------------------
-   
+
+
     print(queue)
+
+
+
+    # ===============================
+    # Обработка операций
+    # ===============================
 
     processor.process_transactions()
 
-    # -----------------------------
-    # Итоги
-    # -----------------------------
-    print(
-    "----- СЧЕТА ИВАНА -----"
-    )
+
+
+    # ===============================
+    # Счета клиента
+    # ===============================
+
+    print("\n----- СЧЕТА ИВАНА -----")
+
     for account in accounts:
+
         if account.owner_data.full_name == "Иван Иванов":
             print(account)
 
-    print(
-    "----- ИСТОРИЯ ИВАНА -----"
-    )
+
+
+    print("\n----- ИСТОРИЯ ИВАНА -----")
+
     clients[0].show_history()
 
     print(
@@ -232,35 +290,168 @@ def main():
     )
 
 
-    print(
-    "----- RISK -----"
-    )
+
+    # ===============================
+    # Risk
+    # ===============================
+
+    print("\n----- RISK -----")
+
+
     for item in risk.get_suspicious_operations():
+
         print(
             item["transaction"].id,
             item["risk"],
             item["reason"]
         )
 
-    print(
-    "----- TOP CLIENTS -----"
-    )
+
+
+    # ===============================
+    # Клиенты с максимальным балансом
+    # ===============================
+
+    print("\n----- TOP CLIENTS -----")
+
+
     for client in bank.get_clients_ranking()[:3]:
-        print(client)
+
+        print(
+            client["client"],
+            "|",
+            money(client["balance"]),
+            "RUB"
+        )
+
+
+
+    # ===============================
+    # Статистика
+    # ===============================
+
+    print("\n----- TRANSACTION STATISTICS -----")
 
     print(
         bank.transaction_statistics(
             transactions
+        )
     )
+
+
+    print(
+        "\nTOTAL BALANCE:",
+        money(
+            bank.get_total_balance()
+        ),
+        "RUB"
+    )
+
+
+
+    # ===============================
+    # Reports
+    # ===============================
+
+    report = ReportBuilder(
+        bank,
+        transactions,
+        risk
+    )
+
+
+
+    print("\n----- BANK REPORT -----")
+
+    bank_report = report.bank_report()
+
+    bank_report["total_balance"] = money(
+        bank_report["total_balance"]
+    )
+
+    print(bank_report)
+
+
+
+    print("\n----- CLIENT REPORT -----")
+
+
+    ivan_report = report.client_report(
+        clients[0]
+    )
+
+
+    for account in ivan_report["accounts"]:
+
+        account["balance"] = money(
+            account["balance"]
+        )
+
+
+    print(
+        ivan_report
+    )
+
+
+
+    print("\n----- RISK REPORT -----")
+
+
+    risk_report = report.risk_report()
+
+
+    for item in risk_report:
+
+        print(item)
+
+
+
+    # ===============================
+    # Export
+    # ===============================
+
+    report.export_to_json(
+        bank_report,
+        "bank_report.json"
+    )
+
+
+    report.export_to_csv(
+        risk_report,
+        "risk_report.csv"
+    )
+
+
+    # ===============================
+    # Charts
+    # ===============================
+
+    report.save_charts()
+
+
+    print(
+        "\nОтчеты сохранены:"
     )
 
     print(
-    "TOTAL BALANCE:",
-    bank.get_total_balance()
+        "- bank_report.json"
     )
 
+    print(
+        "- risk_report.csv"
+    )
 
+    print(
+        "- transaction_statuses.png"
+    )
 
+    print(
+        "- clients_balance.png"
+    )
+
+    print(
+        "- balance_history.png"
+    )
 
 
 

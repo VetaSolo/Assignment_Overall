@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from datetime import datetime, timedelta
 from unittest import result
+from decimal import Decimal
 import uuid
 
 class AccountFrozenError(Exception):
@@ -19,7 +20,7 @@ class AbstractAccount(ABC):
     def __init__(self, id, owner_data, balance, account_status):
         self.id = id # уникальный идентификатор счёта
         self.owner_data = owner_data # данные владельца
-        self._balance = balance # защищённый баланс
+        self._balance = Decimal(str(balance)) # защищённый баланс
         self.account_status = account_status #статус счёта: активный, замороженный, закрытый
 # абстрактные методы:
     @abstractmethod
@@ -80,7 +81,7 @@ class BankAccount(AbstractAccount):
         if amount <= 0:
             raise InvalidOperationError("Сумма должна быть положительной")
         
-        self._balance += amount
+        self._balance += Decimal(str(amount))
 
     def withdraw(self, amount):
         if self.account_status == BankAccount.FROZEN:
@@ -95,9 +96,9 @@ class BankAccount(AbstractAccount):
         if amount > self._balance:
             raise InsufficientFundsError("Недостаточно средств")
     
-        self._balance -= amount
-    
-    
+        self._balance -= Decimal(str(amount))
+
+
     def get_account_info(self):
         return { 
             "id": self.id,
@@ -277,6 +278,7 @@ class Client:
         self.is_blocked = False
         self.failed_attempts = 0
         self.transactions = []
+        self.accounts = []
 
         if self.age < 18:
                     raise InvalidOperationError("Клиент должен быть старше 18 лет")
@@ -308,8 +310,13 @@ class Bank:
 
         self.accounts.append(account)
 
+        account.owner_data = client
+
         client.account_numbers.append(
             account.id
+        )
+        client.accounts.append(
+            account
         )
 
     def close_account(self, account):
@@ -529,8 +536,6 @@ class TransactionProcessor:
         self.transaction_queue = transaction_queue
         self.error_log = []
         self.max_retries = 3
-
-        self.transaction_queue = transaction_queue
         self.risk_analyzer = risk_analyzer
         self.audit_log = audit_log
 
@@ -572,6 +577,15 @@ class TransactionProcessor:
                     raise InvalidOperationError(
                         "Операция заблокирована системой безопасности"
                     )
+                if transaction.sender:
+                    transaction.sender.owner_data.transactions.append(
+                        transaction
+                        )
+                if transaction.receiver:
+                    transaction.receiver.owner_data.transactions.append(
+                        transaction
+                        )
+                
                 self._process_transaction(
                     transaction
                 )
@@ -579,14 +593,7 @@ class TransactionProcessor:
                     Transaction.COMPLETED
                 )
 
-                if transaction.sender:
-                    transaction.sender.owner_data.transactions.append(
-                        transaction
-                    )
-                if transaction.receiver:
-                    transaction.receiver.owner_data.transactions.append(
-                        transaction
-                    )
+                
 
 
                 self.audit_log.add_record(
@@ -669,9 +676,11 @@ class TransactionProcessor:
             )
 
     def calculate_commission(self, transaction):
+
         if transaction.transaction_type == Transaction.TRANSFER:
-            return transaction.amount * 0.02
-        return 0
+            return Decimal(str(transaction.amount)) * Decimal("0.02")
+
+        return Decimal("0")
 
     
 
