@@ -1,8 +1,12 @@
 {
     "clients": 6,
     "accounts": 10,
-    "total_balance": "6 905 859.17",
+    "total_balance": {
+        "RUB": "3 832 068.42",
+        "USD": "500 541.94",
+        "EUR": "273 535.90"
+    },
     "transactions": 42,
-    "completed": 28,
-    "failed": 14
+    "completed": 21,
+    "failed": 21
 }

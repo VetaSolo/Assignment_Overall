@@ -138,9 +138,10 @@ class SavingsAccount(BankAccount):
         self._balance += self._balance * (self.monthly_return / 100) 
 
     def withdraw(self, amount):
-        super().withdraw(amount)
+        
         if self._balance - amount < self.min_balance:
             raise InvalidOperationError("Нельзя опуститься ниже минимального остатка")
+        super().withdraw(amount)
         
 
     def get_account_info(self):
@@ -188,15 +189,21 @@ class PremiumAccount(BankAccount):
         self.commission = commission
 
     def withdraw(self, amount):
-        if amount > self.withdraw_limit:
-            raise InvalidOperationError("Превышен лимит на снятие")
-        
-        if self._balance - amount < -self.overdraft_limit:
+        if self.account_status == BankAccount.FROZEN:
+            raise AccountFrozenError("Счет заморожен")  
+
+        if self.account_status == BankAccount.CLOSED:
+            raise AccountClosedError("Счет закрыт") 
+
+        if amount <= 0:
+            raise InvalidOperationError("Сумма должна быть положительной")  
+
+        total = amount + self.withdraw_fee
+
+        if total > self._balance + self.overdraft_limit:
             raise InsufficientFundsError("Недостаточно средств с учетом овердрафта")
 
-        amount += self.commission
-
-        self._balance -= amount
+        self._balance -= total
 
     def get_account_info(self):
         return { 
@@ -372,7 +379,11 @@ class Bank:
     def check_operation_time(self):
         from datetime import datetime
         current_time = datetime.now().time()
-        if current_time < datetime.strptime("00:00", "%H:%M").time() or current_time > datetime.strptime("05:00", "%H:%M").time():
+        if (
+            datetime.strptime("00:00", "%H:%M").time()
+            <= current_time <
+            datetime.strptime("05:00", "%H:%M").time()
+        ):
             raise InvalidOperationError(
                 "Операции доступны только с 00:00 до 05:00"
             )    
@@ -417,11 +428,13 @@ class Bank:
                     result["failed"] += 1
             return result
     def get_total_balance(self):
-            total = 0
-            for account in self.accounts:
-                total += account._balance
-    
-            return round(total, 2)
+            
+        total = {}
+        for account in self.accounts:
+            if account.currency not in total:
+                total[account.currency] = Decimal("0")
+            total[account.currency] += account._balance
+        return total
 
 class Transaction:
     CREATED = "CREATED"
@@ -429,13 +442,15 @@ class Transaction:
     COMPLETED = "COMPLETED"
     FAILED = "FAILED"
     CANCELLED = "CANCELLED"
+    PENDING = "PENDING"
 
     ALLOWED_TRANSACTION_STATUSES = [
             CREATED,
             PROCESSING,
             COMPLETED,
             FAILED,
-            CANCELLED
+            CANCELLED,
+            PENDING
         ]
 
     TRANSFER = "TRANSFER"
@@ -480,6 +495,7 @@ class Transaction:
         self.execute_at = None
         self.failure_reason = None
         self.priority = priority
+        self.retry_count = 0
 
         
 class TransactionQueue:
@@ -491,8 +507,13 @@ class TransactionQueue:
         self.queue.sort(key=lambda x: x.priority, reverse=True) 
 
     def get_next_transaction(self):
-        if self.queue:
-            return self.queue.pop(0)
+        for transaction in self.queue:
+            if (
+                transaction.execute_at is None
+                or transaction.execute_at <= datetime.now()
+            ):
+                self.queue.remove(transaction)
+                return transaction
         return None
 
     def cancel_transaction(self, transaction):
@@ -505,10 +526,15 @@ class TransactionQueue:
         if delay_time <= 0:
             raise InvalidOperationError(
                 "Время задержки должно быть положительным")
-        if transaction in self.queue:
-            transaction.execute_at = (
-                datetime.now() + timedelta(minutes=delay_time)
+        if transaction not in self.queue:
+            raise InvalidOperationError(
+                "Транзакция отсутствует в очереди"
             )
+
+        transaction.execute_at = (
+            datetime.now() +
+            timedelta(minutes=delay_time)
+        )
 
     def __str__(self):
         return f"TransactionQueue({len(self.queue)} transactions)"
@@ -532,12 +558,13 @@ class TransactionProcessor:
         ("CNY", "RUB"): 11
         }
 
-    def __init__(self, transaction_queue, risk_analyzer, audit_log ):
+    def __init__(self, transaction_queue, risk_analyzer, audit_log, bank ):
         self.transaction_queue = transaction_queue
         self.error_log = []
         self.max_retries = 3
         self.risk_analyzer = risk_analyzer
         self.audit_log = audit_log
+        self.bank = bank
 
     def convert_currency(self, amount, from_currency, to_currency):
         if from_currency == to_currency:
@@ -574,48 +601,68 @@ class TransactionProcessor:
                 )
                 # опасная операция
                 if risk == RiskAnalyzer.HIGH:
-                    raise InvalidOperationError(
+
+                    transaction.status = Transaction.FAILED
+                    transaction.failure_reason = (
                         "Операция заблокирована системой безопасности"
                     )
+
+                    self.audit_log.add_record(
+                        AuditLog.HIGH,
+                        f"Transaction {transaction.id} blocked"
+                    )
+
+                    continue
+
+                self._process_transaction(transaction)
+
+                transaction.status = (Transaction.COMPLETED)
+                
                 if transaction.sender:
                     transaction.sender.owner_data.transactions.append(
                         transaction
                         )
                 if transaction.receiver:
-                    transaction.receiver.owner_data.transactions.append(
-                        transaction
+
+                    if (
+                        transaction.sender is None
+                        or transaction.receiver.owner_data != transaction.sender.owner_data
+                    ):
+                        transaction.receiver.owner_data.transactions.append(
+                            transaction
                         )
                 
-                self._process_transaction(
-                    transaction
-                )
-                transaction.status = (
-                    Transaction.COMPLETED
-                )
-
                 
-
-
                 self.audit_log.add_record(
                     AuditLog.LOW,
                     f"Transaction {transaction.id} completed"
                 )
             except Exception as e:
-                transaction.status = (
-                    Transaction.FAILED
-                )
-                transaction.failure_reason = str(e)
-                self.error_log.append(
-                    str(e)
-                )
 
-                self.audit_log.add_record(
-                    AuditLog.HIGH,
-                    f"Transaction {transaction.id} failed: {e}"
-                )
+                transaction.retry_count += 1
+                if transaction.retry_count < self.max_retries:
+                    transaction.status = Transaction.PENDING
+                    self.transaction_queue.add_transaction(
+                        transaction
+                    )
+                    self.audit_log.add_record(
+                        AuditLog.MEDIUM,
+                        f"Transaction {transaction.id} retry "
+                        f"{transaction.retry_count}/{self.max_retries}"
+                    )
+                else:
+                    transaction.status = Transaction.FAILED
+                    transaction.failure_reason = str(e)
+                    self.error_log.append(str(e))
+                    self.audit_log.add_record(
+                        AuditLog.HIGH,
+                        f"Transaction {transaction.id} failed: {e}"
+                    )
 
 
     def _process_transaction(self, transaction):
+
+        self.bank.check_operation_time()
         transaction.status = Transaction.PROCESSING
 
         # Проверка статусов
@@ -745,85 +792,97 @@ class RiskAnalyzer:
         # известные получатели
         self.known_receivers = {}
         # подозрительные операции
-        self.suspicious_operations = []
-
+        self.suspicious_operations = {}
 
     def analyze(self, transaction):
         risk_level = self.LOW
         reasons = []
 
-        # 1. Проверка большой суммы
-        if transaction.amount >= 100000:
+        # 1. Крупная сумма
+        if transaction.amount >= 500000:
             risk_level = self.HIGH
-            reasons.append(
-                "Крупная сумма операции"
-            )
-
-        # 2. Проверка частых операций
-        sender = transaction.sender.owner_data
-        if sender not in self.transaction_history:
-            self.transaction_history[sender] = []
-        self.transaction_history[sender].append(
-            datetime.now()
-        )
-        recent_operations = [
-            time
-            for time in self.transaction_history[sender]
-            if datetime.now() - time < timedelta(minutes=5)
-        ]
-        if len(recent_operations) >= 5:
+            reasons.append("Крупная сумма операции")
+        elif transaction.amount >= 100000:
             risk_level = self.MEDIUM
-            reasons.append(
-                "Слишком много операций за короткое время"
-            )
 
-        # 3. Проверка нового получателя
-        if transaction.receiver:
-            receiver = transaction.receiver.id
-            if sender not in self.known_receivers:
-                self.known_receivers[sender] = set()
-            if receiver not in self.known_receivers[sender]:
-                self.known_receivers[sender].add(receiver)
+        sender = None
+        if transaction.sender:
+            sender = transaction.sender.owner_data
+
+        # 2. Частые операции
+        if sender:
+            if sender not in self.transaction_history:
+                self.transaction_history[sender] = []
+
+            self.transaction_history[sender].append(datetime.now())
+
+            recent_operations = [
+                t
+                for t in self.transaction_history[sender]
+                if datetime.now() - t < timedelta(minutes=5)
+            ]
+
+            if len(recent_operations) >= 12:
                 if risk_level != self.HIGH:
                     risk_level = self.MEDIUM
+
                 reasons.append(
-                    "Перевод новому получателю"
+                    "Слишком много операций за короткое время"
                 )
-        # 4. Проверка ночного времени
+
+        # 3. Новый получатель
+        if sender and transaction.receiver:
+            receiver = transaction.receiver.id
+
+            if sender not in self.known_receivers:
+                self.known_receivers[sender] = set()
+
+            is_new_receiver = (
+                receiver not in self.known_receivers[sender]
+            )
+
+            if is_new_receiver:
+                self.known_receivers[sender].add(receiver)
+
+                if len(self.known_receivers[sender]) > 3:
+                    if risk_level != self.HIGH:
+                        risk_level = self.MEDIUM
+
+                    reasons.append(
+                        "Много новых получателей"
+                    )
+
+        # 4. Ночное время
         current_hour = datetime.now().hour
         if 0 <= current_hour < 5:
             risk_level = self.HIGH
-            reasons.append(
-                "Операция в ночное время"
-            )
-        # сохраняем подозрительные
+            reasons.append("Операция в ночное время")
+
         if risk_level != self.LOW:
-            self.suspicious_operations.append(
-                {
-                    "transaction": transaction,
-                    "risk": risk_level,
-                    "reason": reasons
-                }
-            )
+            self.suspicious_operations[transaction.id] = {
+                "transaction": transaction,
+                "risk": risk_level,
+                "reason": reasons
+            }
+
         return risk_level, reasons
 
     def get_suspicious_operations(self):
-        return self.suspicious_operations
+        return list(self.suspicious_operations.values())
 
     def get_client_risk_profile(self):
         profile = {}
         for item in self.suspicious_operations:
             transaction = item["transaction"]
+            if transaction.sender is None:
+                continue
             client = transaction.sender.owner_data
             if client not in profile:
                 profile[client] = {
                     "risk": item["risk"],
                     "count": 0
                 }
-
             profile[client]["count"] += 1
-
             if item["risk"] == self.HIGH:
-
                 profile[client]["risk"] = self.HIGH
         return profile

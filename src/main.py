@@ -26,7 +26,8 @@ def main():
     processor = TransactionProcessor(
         queue,
         risk,
-        audit
+        audit,
+        bank
     )
 
 
@@ -339,14 +340,12 @@ def main():
     )
 
 
-    print(
-        "\nTOTAL BALANCE:",
-        money(
-            bank.get_total_balance()
-        ),
-        "RUB"
-    )
+    print("\n----- TOTAL BALANCE -----")
 
+    balances = bank.get_total_balance()
+
+    for currency, amount in balances.items():
+        print(f"{amount:,.2f} {currency}".replace(",", " "))
 
 
     # ===============================
@@ -365,9 +364,10 @@ def main():
 
     bank_report = report.bank_report()
 
-    bank_report["total_balance"] = money(
-        bank_report["total_balance"]
-    )
+    bank_report["total_balance"] = {
+        currency: money(amount)
+        for currency, amount in bank.get_total_balance().items()
+    }
 
     print(bank_report)
 
