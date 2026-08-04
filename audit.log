@@ -3593,3 +3593,143 @@
 2026-08-03 22:35:14.663962 | MEDIUM | Transaction 8963441d retry 2/3
 2026-08-03 22:35:14.663962 | LOW | Transaction 8963441d: []
 2026-08-03 22:35:14.663962 | HIGH | Transaction 8963441d failed: Счет получателя недоступен
+2026-08-04 12:16:23.700408 | MEDIUM | Transaction ffa87d69: ['Перевод на новый счёт']
+2026-08-04 12:16:23.701658 | LOW | Transaction ffa87d69 completed
+2026-08-04 12:20:24.267219 | MEDIUM | Transaction b90efbf2: ['Перевод на новый счёт']
+2026-08-04 12:20:24.267756 | LOW | Transaction b90efbf2 completed
+2026-08-04 12:20:44.276064 | MEDIUM | Transaction e6dc4eef: ['Перевод на новый счёт']
+2026-08-04 12:20:44.276600 | LOW | Transaction e6dc4eef completed
+2026-08-04 12:24:16.848878 | MEDIUM | Transaction d5321bf1: ['Перевод на новый счёт']
+2026-08-04 12:24:16.848878 | LOW | Transaction d5321bf1 completed
+2026-08-04 12:29:46.680692 | MEDIUM | Transaction 48547007: ['Перевод на новый счёт']
+2026-08-04 12:29:46.681695 | LOW | Transaction 48547007 completed
+2026-08-04 12:30:04.654771 | HIGH | Transaction 7db46dac: ['Крупная сумма операции', 'Перевод на новый счёт']
+2026-08-04 12:30:04.654771 | HIGH | Transaction 7db46dac blocked
+2026-08-04 12:30:04.654771 | MEDIUM | Transaction 1f1a208a: ['Перевод на новый счёт']
+2026-08-04 12:30:04.654771 | MEDIUM | Transaction 1f1a208a retry 1/3
+2026-08-04 12:30:04.654771 | MEDIUM | Transaction e8f65e6b: ['Перевод на новый счёт']
+2026-08-04 12:30:04.654771 | LOW | Transaction e8f65e6b completed
+2026-08-04 12:30:04.654771 | MEDIUM | Transaction fca7ee83: ['Перевод на новый счёт']
+2026-08-04 12:30:04.654771 | LOW | Transaction fca7ee83 completed
+2026-08-04 12:30:04.654771 | MEDIUM | Transaction dca9a006: ['Перевод на новый счёт']
+2026-08-04 12:30:04.654771 | LOW | Transaction dca9a006 completed
+2026-08-04 12:30:04.654771 | MEDIUM | Transaction 1e4deea0: ['Перевод на новый счёт']
+2026-08-04 12:30:04.654771 | LOW | Transaction 1e4deea0 completed
+2026-08-04 12:30:04.654771 | HIGH | Transaction a15394b2: ['Крупная сумма операции', 'Перевод на новый счёт']
+2026-08-04 12:30:04.654771 | HIGH | Transaction a15394b2 blocked
+2026-08-04 12:30:04.654771 | MEDIUM | Transaction 36adc17c: ['Перевод на новый счёт']
+2026-08-04 12:30:04.654771 | MEDIUM | Transaction 36adc17c retry 1/3
+2026-08-04 12:30:04.654771 | HIGH | Transaction 3a93be0c: ['Крупная сумма операции', 'Перевод на новый счёт']
+2026-08-04 12:30:04.654771 | HIGH | Transaction 3a93be0c blocked
+2026-08-04 12:30:04.654771 | LOW | Transaction 1f1a208a: []
+2026-08-04 12:30:04.654771 | MEDIUM | Transaction 1f1a208a retry 2/3
+2026-08-04 12:30:04.654771 | MEDIUM | Transaction 36adc17c: []
+2026-08-04 12:30:04.654771 | MEDIUM | Transaction 36adc17c retry 2/3
+2026-08-04 12:30:04.654771 | LOW | Transaction 1f1a208a: []
+2026-08-04 12:30:04.654771 | HIGH | Transaction 1f1a208a failed: Счет отправителя недоступен
+2026-08-04 12:30:04.654771 | MEDIUM | Transaction 36adc17c: []
+2026-08-04 12:30:04.654771 | HIGH | Transaction 36adc17c failed: Счет получателя недоступен
+2026-08-04 12:30:04.654771 | MEDIUM | Transaction 1ce8edd5: ['Перевод на новый счёт', 'Много новых получателей']
+2026-08-04 12:30:04.654771 | LOW | Transaction 1ce8edd5 completed
+2026-08-04 12:30:04.654771 | MEDIUM | Transaction f3ef4266: ['Перевод на новый счёт']
+2026-08-04 12:30:04.654771 | LOW | Transaction f3ef4266 completed
+2026-08-04 12:30:04.654771 | MEDIUM | Transaction dd07f2e0: ['Перевод на новый счёт']
+2026-08-04 12:30:04.654771 | LOW | Transaction dd07f2e0 completed
+2026-08-04 12:30:04.654771 | MEDIUM | Transaction 0548dff0: ['Перевод на новый счёт', 'Много новых получателей']
+2026-08-04 12:30:04.654771 | LOW | Transaction 0548dff0 completed
+2026-08-04 12:30:04.654771 | MEDIUM | Transaction 16ac8be0: ['Перевод на новый счёт']
+2026-08-04 12:30:04.654771 | LOW | Transaction 16ac8be0 completed
+2026-08-04 12:30:04.654771 | MEDIUM | Transaction 6ea696e7: ['Перевод на новый счёт']
+2026-08-04 12:30:04.654771 | LOW | Transaction 6ea696e7 completed
+2026-08-04 12:30:04.654771 | MEDIUM | Transaction dcd3ee7f: ['Перевод на новый счёт']
+2026-08-04 12:30:04.654771 | MEDIUM | Transaction dcd3ee7f retry 1/3
+2026-08-04 12:30:04.654771 | LOW | Transaction 9702a811: []
+2026-08-04 12:30:04.654771 | LOW | Transaction 9702a811 completed
+2026-08-04 12:30:04.654771 | HIGH | Transaction 4c1a7a74: ['Крупная сумма операции', 'Перевод на новый счёт', 'Много новых получателей']
+2026-08-04 12:30:04.654771 | HIGH | Transaction 4c1a7a74 blocked
+2026-08-04 12:30:04.654771 | LOW | Transaction dcd3ee7f: []
+2026-08-04 12:30:04.654771 | MEDIUM | Transaction dcd3ee7f retry 2/3
+2026-08-04 12:30:04.654771 | LOW | Transaction dcd3ee7f: []
+2026-08-04 12:30:04.654771 | HIGH | Transaction dcd3ee7f failed: Счет получателя недоступен
+2026-08-04 12:30:04.654771 | MEDIUM | Transaction afea06fa: ['Перевод на новый счёт']
+2026-08-04 12:30:04.654771 | MEDIUM | Transaction afea06fa retry 1/3
+2026-08-04 12:30:04.654771 | LOW | Transaction 95137dcf: []
+2026-08-04 12:30:04.654771 | LOW | Transaction 95137dcf completed
+2026-08-04 12:30:04.671281 | MEDIUM | Transaction 249486c9: ['Перевод на новый счёт', 'Много новых получателей']
+2026-08-04 12:30:04.671281 | LOW | Transaction 249486c9 completed
+2026-08-04 12:30:04.671281 | MEDIUM | Transaction 4640770d: ['Перевод на новый счёт', 'Много новых получателей']
+2026-08-04 12:30:04.672482 | LOW | Transaction 4640770d completed
+2026-08-04 12:30:04.672482 | MEDIUM | Transaction 03c77895: ['Перевод на новый счёт', 'Много новых получателей']
+2026-08-04 12:30:04.672482 | LOW | Transaction 03c77895 completed
+2026-08-04 12:30:04.673280 | MEDIUM | Transaction c3039191: ['Перевод на новый счёт', 'Много новых получателей']
+2026-08-04 12:30:04.673842 | MEDIUM | Transaction c3039191 retry 1/3
+2026-08-04 12:30:04.673842 | MEDIUM | Transaction 042dee0c: ['Перевод на новый счёт', 'Много новых получателей']
+2026-08-04 12:30:04.675066 | LOW | Transaction 042dee0c completed
+2026-08-04 12:30:04.675461 | MEDIUM | Transaction 561c3c96: ['Перевод на новый счёт', 'Много новых получателей']
+2026-08-04 12:30:04.675461 | LOW | Transaction 561c3c96 completed
+2026-08-04 12:30:04.675461 | MEDIUM | Transaction 99e0c13a: ['Перевод на новый счёт']
+2026-08-04 12:30:04.676519 | MEDIUM | Transaction 99e0c13a retry 1/3
+2026-08-04 12:30:04.676519 | HIGH | Transaction b04cb0ae: ['Крупная сумма операции', 'Перевод на новый счёт']
+2026-08-04 12:30:04.676519 | HIGH | Transaction b04cb0ae blocked
+2026-08-04 12:30:04.677516 | MEDIUM | Transaction fbf23692: []
+2026-08-04 12:30:04.677516 | MEDIUM | Transaction fbf23692 retry 1/3
+2026-08-04 12:30:04.677516 | HIGH | Transaction adc40f91: ['Крупная сумма операции', 'Перевод на новый счёт', 'Много новых получателей']
+2026-08-04 12:30:04.677516 | HIGH | Transaction adc40f91 blocked
+2026-08-04 12:30:04.678520 | LOW | Transaction afea06fa: []
+2026-08-04 12:30:04.679064 | MEDIUM | Transaction afea06fa retry 2/3
+2026-08-04 12:30:04.679395 | LOW | Transaction c3039191: []
+2026-08-04 12:30:04.679395 | MEDIUM | Transaction c3039191 retry 2/3
+2026-08-04 12:30:04.679395 | LOW | Transaction 99e0c13a: []
+2026-08-04 12:30:04.679395 | MEDIUM | Transaction 99e0c13a retry 2/3
+2026-08-04 12:30:04.679395 | MEDIUM | Transaction fbf23692: []
+2026-08-04 12:30:04.679395 | MEDIUM | Transaction fbf23692 retry 2/3
+2026-08-04 12:30:04.679395 | LOW | Transaction afea06fa: []
+2026-08-04 12:30:04.679395 | HIGH | Transaction afea06fa failed: Счет получателя недоступен
+2026-08-04 12:30:04.679395 | LOW | Transaction c3039191: []
+2026-08-04 12:30:04.679395 | HIGH | Transaction c3039191 failed: Счет получателя недоступен
+2026-08-04 12:30:04.679395 | LOW | Transaction 99e0c13a: []
+2026-08-04 12:30:04.679395 | HIGH | Transaction 99e0c13a failed: Счет отправителя недоступен
+2026-08-04 12:30:04.679395 | MEDIUM | Transaction fbf23692: []
+2026-08-04 12:30:04.679395 | HIGH | Transaction fbf23692 failed: Нельзя опуститься ниже минимального остатка
+2026-08-04 12:30:04.679395 | LOW | Transaction b2281f48: []
+2026-08-04 12:30:04.679395 | LOW | Transaction b2281f48 completed
+2026-08-04 12:30:04.679395 | MEDIUM | Transaction 428e6879: ['Перевод на новый счёт', 'Много новых получателей']
+2026-08-04 12:30:04.679395 | LOW | Transaction 428e6879 completed
+2026-08-04 12:30:04.679395 | MEDIUM | Transaction 136f1152: ['Слишком много операций за короткое время']
+2026-08-04 12:30:04.679395 | MEDIUM | Transaction 136f1152 retry 1/3
+2026-08-04 12:30:04.679395 | LOW | Transaction 16354376: []
+2026-08-04 12:30:04.679395 | LOW | Transaction 16354376 completed
+2026-08-04 12:30:04.679395 | MEDIUM | Transaction 0d0b626f: ['Перевод на новый счёт']
+2026-08-04 12:30:04.679395 | MEDIUM | Transaction 0d0b626f retry 1/3
+2026-08-04 12:30:04.679395 | MEDIUM | Transaction 1ab113e7: ['Слишком много операций за короткое время']
+2026-08-04 12:30:04.679395 | MEDIUM | Transaction 1ab113e7 retry 1/3
+2026-08-04 12:30:04.679395 | HIGH | Transaction b58005fb: ['Крупная сумма операции', 'Перевод на новый счёт', 'Много новых получателей']
+2026-08-04 12:30:04.679395 | HIGH | Transaction b58005fb blocked
+2026-08-04 12:30:04.679395 | HIGH | Transaction 54b5055a: ['Крупная сумма операции', 'Слишком много операций за короткое время']
+2026-08-04 12:30:04.679395 | HIGH | Transaction 54b5055a blocked
+2026-08-04 12:30:04.679395 | MEDIUM | Transaction 136f1152: ['Слишком много операций за короткое время']
+2026-08-04 12:30:04.679395 | MEDIUM | Transaction 136f1152 retry 2/3
+2026-08-04 12:30:04.679395 | LOW | Transaction 0d0b626f: []
+2026-08-04 12:30:04.679395 | MEDIUM | Transaction 0d0b626f retry 2/3
+2026-08-04 12:30:04.689870 | MEDIUM | Transaction 1ab113e7: ['Слишком много операций за короткое время']
+2026-08-04 12:30:04.689870 | MEDIUM | Transaction 1ab113e7 retry 2/3
+2026-08-04 12:30:04.690880 | MEDIUM | Transaction 136f1152: ['Слишком много операций за короткое время']
+2026-08-04 12:30:04.690880 | HIGH | Transaction 136f1152 failed: Недостаточно средств
+2026-08-04 12:30:04.691541 | LOW | Transaction 0d0b626f: []
+2026-08-04 12:30:04.691541 | HIGH | Transaction 0d0b626f failed: Счет отправителя недоступен
+2026-08-04 12:30:04.691541 | MEDIUM | Transaction 1ab113e7: ['Слишком много операций за короткое время']
+2026-08-04 12:30:04.691541 | HIGH | Transaction 1ab113e7 failed: Превышен лимит снятия: 50000 USD
+2026-08-04 12:30:04.691541 | LOW | Transaction 73e0e321: []
+2026-08-04 12:30:04.691541 | LOW | Transaction 73e0e321 completed
+2026-08-04 12:30:04.691541 | MEDIUM | Transaction 460f2b16: ['Перевод на новый счёт', 'Много новых получателей']
+2026-08-04 12:30:04.691541 | LOW | Transaction 460f2b16 completed
+2026-08-04 12:30:04.691541 | LOW | Transaction 6f93d558: []
+2026-08-04 12:30:04.691541 | LOW | Transaction 6f93d558 completed
+2026-08-04 12:30:04.691541 | LOW | Transaction dced31f3: []
+2026-08-04 12:30:04.691541 | MEDIUM | Transaction dced31f3 retry 1/3
+2026-08-04 12:30:04.691541 | LOW | Transaction dced31f3: []
+2026-08-04 12:30:04.691541 | MEDIUM | Transaction dced31f3 retry 2/3
+2026-08-04 12:30:04.691541 | MEDIUM | Transaction dced31f3: ['Слишком много операций за короткое время']
+2026-08-04 12:30:04.691541 | HIGH | Transaction dced31f3 failed: Счет получателя недоступен
+2026-08-04 12:32:28.690190 | MEDIUM | Transaction c5fed8ad: ['Перевод на новый счёт']
+2026-08-04 12:32:28.690190 | LOW | Transaction c5fed8ad completed
