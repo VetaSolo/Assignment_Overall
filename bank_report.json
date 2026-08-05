@@ -2,11 +2,11 @@
     "clients": 6,
     "accounts": 10,
     "total_balance": {
-        "RUB": "8 300 783.07",
-        "USD": "414 691.22",
-        "EUR": "300 384.21"
+        "RUB": "3 209 991.18",
+        "USD": "510 417.46",
+        "EUR": "276 997.55"
     },
     "transactions": 42,
-    "completed": 23,
-    "failed": 19
+    "completed": 24,
+    "failed": 18
 }

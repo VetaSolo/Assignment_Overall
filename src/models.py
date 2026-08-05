@@ -235,10 +235,14 @@ class PremiumAccount(BankAccount):
 
     def withdraw(self, amount):
         if self.account_status == BankAccount.FROZEN:
-            raise AccountFrozenError("Счет заморожен")
+            raise AccountFrozenError(
+                "Счет заморожен"
+            )
 
         if self.account_status == BankAccount.CLOSED:
-            raise AccountClosedError("Счет закрыт")
+            raise AccountClosedError(
+                "Счет закрыт"
+            )
 
         amount = Decimal(str(amount))
 
@@ -253,25 +257,16 @@ class PremiumAccount(BankAccount):
                 f"{self.withdraw_limit} {self.currency}"
             )
 
-        commission_amount = (
-            amount
-            * self.commission
-            / Decimal("100")
-        )
-
-        total_amount = amount + commission_amount
-
         available_funds = (
             self._balance + self.overdraft_limit
         )
 
-        if total_amount > available_funds:
+        if amount > available_funds:
             raise InsufficientFundsError(
-                "Недостаточно средств с учетом "
-                "овердрафта и комиссии"
+                "Недостаточно средств с учетом овердрафта"
             )
-        self._balance -= total_amount
 
+        self._balance -= amount
 
     def get_account_info(self):
         return {
@@ -295,12 +290,44 @@ class PremiumAccount(BankAccount):
             f"📈 overdraft limit: {self.overdraft_limit} | "
             f"💸 commission: {self.commission}%"
         )
-    
-class InvestmentAccount(BankAccount):
-    def __init__(self, id, owner_data, balance, account_status, currency, portfolio):
 
+class InvestmentAccount(BankAccount):
+    ALLOWED_ASSETS = {
+        "stocks",
+        "bonds",
+        "etf"
+    }
+
+    def __init__(
+        self,
+        id,
+        owner_data,
+        balance,
+        account_status,
+        currency,
+        portfolio
+    ):
         if not isinstance(portfolio, dict):
-            raise InvalidOperationError("Портфель должен быть словарем")    
+            raise InvalidOperationError(
+                "Портфель должен быть словарем"
+            )
+
+        normalized_portfolio = {}
+
+        for asset, value in portfolio.items():
+            if asset not in self.ALLOWED_ASSETS:
+                raise InvalidOperationError(
+                    f"Неизвестный тип актива: {asset}"
+                )
+
+            asset_value = Decimal(str(value))
+
+            if asset_value < 0:
+                raise InvalidOperationError(
+                    "Стоимость актива не может быть отрицательной"
+                )
+
+            normalized_portfolio[asset] = asset_value
 
         super().__init__(
             id,
@@ -309,36 +336,94 @@ class InvestmentAccount(BankAccount):
             account_status,
             currency
         )
-        self.portfolio = portfolio
+
+        self.portfolio = normalized_portfolio
+
+    def withdraw(self, amount):
+        """
+        Снятие выполняется только с денежного баланса.
+
+        Виртуальные активы инвестиционного портфеля
+        при снятии не изменяются.
+        """
+        amount = Decimal(str(amount))
+
+        if self.account_status == BankAccount.FROZEN:
+            raise AccountFrozenError(
+                "Инвестиционный счет заморожен"
+            )
+
+        if self.account_status == BankAccount.CLOSED:
+            raise AccountClosedError(
+                "Инвестиционный счет закрыт"
+            )
+
+        if amount <= 0:
+            raise InvalidOperationError(
+                "Сумма должна быть положительной"
+            )
+
+        if amount > self._balance:
+            raise InsufficientFundsError(
+                "Недостаточно свободных средств "
+                "на инвестиционном счете"
+            )
+
+        self._balance -= amount
 
     def project_yearly_growth(self, yearly_return):
-        if yearly_return <= 0:
-            raise InvalidOperationError("Годовая доходность должна быть положительной")
-        total_value = sum(self.portfolio.values())
+        yearly_return = Decimal(str(yearly_return))
 
-        projected_value = total_value * (
-            1 + yearly_return / 100
+        if yearly_return <= 0:
+            raise InvalidOperationError(
+                "Годовая доходность должна быть положительной"
+            )
+
+        total_value = sum(
+            self.portfolio.values(),
+            Decimal("0")
+        )
+
+        projected_value = (
+            total_value
+            * (
+                Decimal("1")
+                + yearly_return / Decimal("100")
+            )
         )
 
         return projected_value
 
     def get_account_info(self):
-        return { 
+        portfolio_value = sum(
+            self.portfolio.values(),
+            Decimal("0")
+        )
+
+        return {
             "id": self.id,
             "balance": self._balance,
             "status": self.account_status,
             "currency": self.currency,
-            "portfolio": self.portfolio
-            }
+            "portfolio": self.portfolio,
+            "portfolio_value": portfolio_value
+        }
 
     def __str__(self):
+        portfolio_value = sum(
+            self.portfolio.values(),
+            Decimal("0")
+        )
+
         return (
             f"🏦 {type(self).__name__} | "
-            f"👤 {self.owner_data} | "
+            f"👤 {self.owner_data.full_name} | "
             f"****{self.id[-4:]} | "
             f"📊 {self.account_status} | "
-            f"💰 {self._balance} {self.currency}| "
-            f"📈 {self.portfolio}"
+            f"💰 {self._balance} {self.currency} | "
+            f"💼 portfolio: {self.portfolio} | "
+            f"📈 portfolio value: "
+            f"{portfolio_value} {self.currency}"
         )
 
 class Client:
@@ -596,6 +681,11 @@ class Transaction:
                 "Комиссия не может быть отрицательной"
             )
 
+        if currency not in BankAccount.ALLOWED_CURRENCIES:
+            raise InvalidOperationError(
+                f"Неизвестная валюта транзакции: {currency}"
+            )
+
         self.id = str(uuid.uuid4())[:8]
         self.transaction_type = transaction_type
         self.amount = amount
@@ -610,7 +700,10 @@ class Transaction:
         self.priority = priority
         self.retry_count = 0
 
-        
+        # Фактические суммы после конвертации.
+        self.sender_debit = Decimal("0")
+        self.receiver_credit = Decimal("0")
+
 class TransactionQueue:
     def __init__(self):
         self.queue = []
@@ -687,19 +780,45 @@ class TransactionProcessor:
     ):
         amount = Decimal(str(amount))
 
+        if from_currency not in BankAccount.ALLOWED_CURRENCIES:
+            raise InvalidOperationError(
+                f"Неизвестная исходная валюта: {from_currency}"
+            )
+
+        if to_currency not in BankAccount.ALLOWED_CURRENCIES:
+            raise InvalidOperationError(
+                f"Неизвестная целевая валюта: {to_currency}"
+            )
+
         if from_currency == to_currency:
             return amount
 
-        rate = self.EXCHANGE_RATES.get(
+        direct_rate = self.EXCHANGE_RATES.get(
             (from_currency, to_currency)
         )
 
-        if rate is None:
+        if direct_rate is not None:
+            return amount * direct_rate
+
+        # Если прямого курса нет, конвертируем через RUB.
+        to_rub_rate = self.EXCHANGE_RATES.get(
+            (from_currency, "RUB")
+        )
+
+        from_rub_rate = self.EXCHANGE_RATES.get(
+            ("RUB", to_currency)
+        )
+
+        if to_rub_rate is None or from_rub_rate is None:
             raise InvalidOperationError(
-                "Конвертация невозможна"
+                f"Конвертация {from_currency} "
+                f"в {to_currency} невозможна"
             )
 
-        return amount * rate
+        amount_in_rub = amount * to_rub_rate
+
+        return amount_in_rub * from_rub_rate
+
 
     def process_transactions(self):
         while True:
@@ -737,6 +856,10 @@ class TransactionProcessor:
                 self._process_transaction(transaction)
 
                 transaction.status = (Transaction.COMPLETED)
+
+                self.risk_analyzer.register_successful_transaction(
+                    transaction
+                )
                 
                 if transaction.sender:
                     transaction.sender.owner_data.transactions.append(
@@ -781,7 +904,6 @@ class TransactionProcessor:
 
 
     def _process_transaction(self, transaction):
-
         self.bank.check_operation_time()
         transaction.status = Transaction.PROCESSING
 
@@ -803,26 +925,47 @@ class TransactionProcessor:
                 "Счет получателя недоступен"
             )
 
+        # Пополнение
         if transaction.transaction_type == Transaction.DEPOSIT:
             if transaction.receiver is None:
                 raise InvalidOperationError(
                     "Не указан счет получателя"
                 )
 
-            transaction.receiver.deposit(
-                transaction.amount
+            receiver_amount = self.convert_currency(
+                transaction.amount,
+                transaction.currency,
+                transaction.receiver.currency
             )
 
+            transaction.receiver_credit = receiver_amount
+            transaction.commission = Decimal("0")
+
+            transaction.receiver.deposit(
+                receiver_amount
+            )
+
+        # Снятие
         elif transaction.transaction_type == Transaction.WITHDRAW:
             if transaction.sender is None:
                 raise InvalidOperationError(
                     "Не указан счет отправителя"
                 )
 
-            transaction.sender.withdraw(
-                transaction.amount
+            sender_amount = self.convert_currency(
+                transaction.amount,
+                transaction.currency,
+                transaction.sender.currency
             )
 
+            transaction.sender_debit = sender_amount
+            transaction.receiver_credit = Decimal("0")
+            transaction.commission = Decimal("0")
+
+            transaction.sender.withdraw(
+                sender_amount
+            )
+        # Перевод
         elif transaction.transaction_type == Transaction.TRANSFER:
             if (
                 transaction.sender is None
@@ -832,29 +975,49 @@ class TransactionProcessor:
                     "Для перевода нужны отправитель и получатель"
                 )
 
+            # Основная сумма в валюте отправителя.
+            sender_amount = self.convert_currency(
+                transaction.amount,
+                transaction.currency,
+                transaction.sender.currency
+            )
+
+            # Основная сумма в валюте получателя.
+            receiver_amount = self.convert_currency(
+                transaction.amount,
+                transaction.currency,
+                transaction.receiver.currency
+            )
+
+            # Комиссия хранится в валюте транзакции.
             commission = self.calculate_commission(
                 transaction
             )
 
+            # Для реального списания переводим комиссию
+            # в валюту счета отправителя.
+            sender_commission = self.convert_currency(
+                commission,
+                transaction.currency,
+                transaction.sender.currency
+            )
+
+            total_sender_debit = (
+                sender_amount + sender_commission
+            )
+
             transaction.commission = commission
-
-            total_amount = (
-                transaction.amount + commission
-            )
-
-            converted_amount = self.convert_currency(
-                transaction.amount,
-                transaction.sender.currency,
-                transaction.receiver.currency
-            )
+            transaction.sender_debit = total_sender_debit
+            transaction.receiver_credit = receiver_amount
 
             transaction.sender.withdraw(
-                total_amount
+                total_sender_debit
             )
 
             transaction.receiver.deposit(
-                converted_amount
+                receiver_amount
             )
+
     def is_external_transfer(self, transaction):
         if transaction.transaction_type != Transaction.TRANSFER:
             return False
@@ -871,9 +1034,17 @@ class TransactionProcessor:
         if not self.is_external_transfer(transaction):
             return Decimal("0")
 
+        if isinstance(transaction.sender, PremiumAccount):
+            commission_rate = (
+                transaction.sender.commission
+                / Decimal("100")
+            )
+        else:
+            commission_rate = Decimal("0.02")
+
         return (
-            Decimal(str(transaction.amount))
-            * Decimal("0.02")
+            transaction.amount
+            * commission_rate
         )
 
     
@@ -922,6 +1093,23 @@ class AuditLog:
             for record in self.records
             if record["level"] == level
         ]
+
+    def save_to_file(self, filename=None):
+        if filename is None:
+            filename = self.filename
+
+        with open(
+            filename,
+            "w",
+            encoding="utf-8"
+        ) as file:
+            for record in self.records:
+                file.write(
+                    f"{record['time']} | "
+                    f"{record['level']} | "
+                    f"{record['message']}\n"
+                )
+    
     def __str__(self):
         return (
             f"AuditLog(records={len(self.records)})"
@@ -951,6 +1139,7 @@ class RiskAnalyzer:
             reasons.append("Крупная сумма операции")
         elif transaction.amount >= 100000:
             risk_level = self.MEDIUM
+            reasons.append("Повышенная сумма операции")
 
         sender = None
         if transaction.sender:
@@ -983,13 +1172,13 @@ class RiskAnalyzer:
             and transaction.transaction_type == Transaction.TRANSFER
             and transaction.receiver
         ):
-            receiver = transaction.receiver.id
+            receiver_id = transaction.receiver.id
 
             if sender not in self.known_receivers:
                 self.known_receivers[sender] = set()
 
             is_new_receiver = (
-                receiver not in self.known_receivers[sender]
+                receiver_id not in self.known_receivers[sender]
             )
 
             if is_new_receiver:
@@ -998,10 +1187,14 @@ class RiskAnalyzer:
                 if risk_level != self.HIGH:
                     risk_level = self.MEDIUM
 
-                self.known_receivers[sender].add(receiver)
+                future_receivers_count = (
+                    len(self.known_receivers[sender]) + 1
+                )
 
-                if len(self.known_receivers[sender]) > 3:
-                    reasons.append("Много новых получателей")
+                if future_receivers_count > 3:
+                    reasons.append(
+                        "Много новых получателей"
+                    )
 
         # 4. Ночное время
         current_hour = datetime.now().hour
@@ -1017,6 +1210,32 @@ class RiskAnalyzer:
             }
 
         return risk_level, reasons
+
+    def register_successful_transaction(
+        self,
+        transaction
+    ):
+        if (
+            transaction.transaction_type
+            != Transaction.TRANSFER
+        ):
+            return
+
+        if (
+            transaction.sender is None
+            or transaction.receiver is None
+        ):
+            return
+
+        sender = transaction.sender.owner_data
+        receiver_id = transaction.receiver.id
+
+        if sender not in self.known_receivers:
+            self.known_receivers[sender] = set()
+
+        self.known_receivers[sender].add(
+            receiver_id
+        )
 
     def get_suspicious_operations(self):
         return list(self.suspicious_operations.values())
@@ -1052,5 +1271,10 @@ class RiskAnalyzer:
                 and profile[client]["risk"] != self.HIGH
             ):
                 profile[client]["risk"] = self.MEDIUM
+
+        for client_profile in profile.values():
+            client_profile["reasons"] = list(
+                dict.fromkeys(client_profile["reasons"])
+            )
 
         return profile

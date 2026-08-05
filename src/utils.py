@@ -1,3 +1,4 @@
+from decimal import Decimal
 import json
 import csv
 import matplotlib.pyplot as plt
@@ -220,49 +221,91 @@ class ReportBuilder:
         # ---------------------------
         # 3. Движение баланса
         # ---------------------------
-        balance_history = []
+        final_balance_rub = Decimal("0")
 
-        current = 0
+        for account in self.bank.accounts:
+            final_balance_rub += self.bank.convert_to_rub(
+                account._balance,
+                account.currency
+            )
 
+        # Сначала определяем, насколько баланс изменился
+        # за все успешно выполненные операции.
+        total_change_rub = Decimal("0")
 
         for transaction in self.transactions:
+            if transaction.status != Transaction.COMPLETED:
+                continue
 
+            amount_rub = self.bank.convert_to_rub(
+                transaction.amount,
+                transaction.currency
+            )
+
+            if transaction.transaction_type == Transaction.DEPOSIT:
+                total_change_rub += amount_rub
+
+            elif transaction.transaction_type == Transaction.WITHDRAW:
+                total_change_rub -= amount_rub
+
+            elif transaction.transaction_type == Transaction.TRANSFER:
+                # Основная сумма просто перемещается между счетами.
+                # Общий баланс уменьшается только на комиссию.
+                commission_rub = self.bank.convert_to_rub(
+                    transaction.commission,
+                    transaction.currency
+                )
+
+                total_change_rub -= commission_rub
+
+        # Восстанавливаем баланс до начала обработки транзакций.
+        current_balance_rub = (
+            final_balance_rub - total_change_rub
+        )
+
+        # Первая точка — баланс до первой транзакции.
+        balance_history = [
+            float(current_balance_rub)
+        ]
+
+        for transaction in self.transactions:
             if transaction.status == Transaction.COMPLETED:
+                amount_rub = self.bank.convert_to_rub(
+                    transaction.amount,
+                    transaction.currency
+                )
 
                 if transaction.transaction_type == Transaction.DEPOSIT:
-
-                    current += float(
-                        transaction.amount
-                    )
-
+                    current_balance_rub += amount_rub
 
                 elif transaction.transaction_type == Transaction.WITHDRAW:
-
-                    current -= float(
-                        transaction.amount
-                    )
-
+                    current_balance_rub -= amount_rub
 
                 elif transaction.transaction_type == Transaction.TRANSFER:
-
-                    current -= float(
-                        transaction.amount
+                    commission_rub = self.bank.convert_to_rub(
+                        transaction.commission,
+                        transaction.currency
                     )
 
+                    current_balance_rub -= commission_rub
 
+            # Для неуспешной операции баланс не меняется,
+            # но точка всё равно добавляется.
             balance_history.append(
-                current
+                float(current_balance_rub)
             )
-        
 
-        plt.figure(figsize=(8,4))
+        plt.figure(figsize=(10, 5))
 
         plt.plot(
-            balance_history
+            range(len(balance_history)),
+            balance_history,
+            marker="o",
+            markersize=3
         )
 
         plt.title(
-            "Balance movement"
+            "Total bank balance movement"
         )
 
         plt.xlabel(
@@ -270,8 +313,14 @@ class ReportBuilder:
         )
 
         plt.ylabel(
-            "Balance"
+            "Balance, RUB"
         )
+
+        plt.grid(
+            alpha=0.3
+        )
+
+        plt.tight_layout()
 
         plt.savefig(
             "balance_history.png"
